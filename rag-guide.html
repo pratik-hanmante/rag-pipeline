@@ -1,0 +1,702 @@
+<title>RAG Pipeline Field Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: lab-manual — sticky chapter rail on the left, one long readable column, interactive "bench" panels inline. */
+:root{
+  --bg:#F2F4F1; --surface:#FFFFFF; --ink:#17201C; --muted:#56635C; --line:#D3DBD6;
+  --accent:#1F57B8; --accent-soft:#E2EAF8; --mark:#B57A00; --mark-soft:#FBF0D6;
+  --term-bg:#131916; --term-fg:#D5E2DA; --term-dim:#7E9187;
+  --ok:#23804F; --ok-soft:#DDF1E5; --err:#B93A2C; --err-soft:#F8E1DD;
+  --c1:#D7E6FB; --c2:#FCE7C2; --c3:#D9F0E1; --c4:#F3DCEB; --ov:#B57A00;
+  --f-display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --s-1:.8125rem; --s0:1rem; --s1:1.125rem; --s2:1.375rem; --s3:1.875rem; --s4:2.75rem;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0E1311; --surface:#151C19; --ink:#E3EBE6; --muted:#97A69E; --line:#2A3631;
+  --accent:#86ABF2; --accent-soft:#1B2940; --mark:#E4B54A; --mark-soft:#3A2E12;
+  --term-bg:#090D0B; --term-fg:#D5E2DA; --term-dim:#7E9187;
+  --ok:#62C48F; --ok-soft:#173326; --err:#EC7A6B; --err-soft:#3D1D19;
+  --c1:#1E3352; --c2:#4A3714; --c3:#1C3D2A; --c4:#41233A; --ov:#E4B54A;
+  color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0E1311; --surface:#151C19; --ink:#E3EBE6; --muted:#97A69E; --line:#2A3631;
+  --accent:#86ABF2; --accent-soft:#1B2940; --mark:#E4B54A; --mark-soft:#3A2E12;
+  --term-bg:#090D0B; --term-fg:#D5E2DA; --term-dim:#7E9187;
+  --ok:#62C48F; --ok-soft:#173326; --err:#EC7A6B; --err-soft:#3D1D19;
+  --c1:#1E3352; --c2:#4A3714; --c3:#1C3D2A; --c4:#41233A; --ov:#E4B54A;
+  color-scheme:dark; }
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:var(--s0);line-height:1.62;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.shell{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:230px minmax(0,1fr);gap:48px;padding-block:40px 80px}
+@media (max-width:860px){.shell{grid-template-columns:minmax(0,1fr);gap:24px;padding-block:24px 60px}}
+
+/* rail */
+.rail{position:sticky;top:calc(env(safe-area-inset-top,0px) + 24px);align-self:start;display:flex;flex-direction:column;gap:20px}
+@media (max-width:860px){.rail{position:static}}
+.brand{font-family:var(--f-display);font-weight:700;font-size:var(--s1);line-height:1.2}
+.brand small{display:block;font-family:var(--f-mono);font-weight:400;font-size:var(--s-1);color:var(--muted);margin-top:4px}
+.rail ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;counter-reset:ch}
+@media (max-width:860px){.rail ol{flex-direction:row;flex-wrap:wrap;gap:6px}}
+.rail a{display:flex;gap:10px;align-items:baseline;padding:6px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:.9375rem}
+.rail a .n{font-family:var(--f-mono);font-size:var(--s-1);color:var(--muted);min-width:1.4em}
+.rail a:hover{background:var(--surface);color:var(--ink)}
+.rail a.on{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.rail a.on .n{color:var(--accent)}
+@media (max-width:860px){.rail a{border:1px solid var(--line);padding:4px 10px;font-size:var(--s-1)}}
+.progress-mini{font-size:var(--s-1);color:var(--muted)}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+
+/* content */
+main{min-width:0;display:flex;flex-direction:column;gap:72px}
+section{display:flex;flex-direction:column;gap:18px;scroll-margin-top:24px}
+.eyebrow{font-family:var(--f-mono);font-size:var(--s-1);letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:var(--s4);font-weight:700;letter-spacing:-.01em}
+h2{font-size:var(--s3);font-weight:700}
+h3{font-size:var(--s1);font-weight:700;margin-top:8px}
+p{margin:0;max-width:68ch}
+.lede{font-size:var(--s1);color:var(--muted);max-width:62ch}
+a{color:var(--accent)}
+code,kbd{font-family:var(--f-mono);font-size:.875em;background:var(--accent-soft);padding:.08em .35em;border-radius:4px}
+ul.plain{margin:0;padding-left:1.2em;max-width:68ch;display:flex;flex-direction:column;gap:6px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.panel-head b{font-family:var(--f-display);font-size:var(--s1)}
+.panel-head span{font-family:var(--f-mono);font-size:var(--s-1);color:var(--muted)}
+.callout{border-left:3px solid var(--mark);background:var(--mark-soft);padding:12px 16px;border-radius:0 8px 8px 0;max-width:72ch}
+.callout.ok{border-color:var(--ok);background:var(--ok-soft)}
+.callout.err{border-color:var(--err);background:var(--err-soft)}
+.callout b{display:block;margin-bottom:2px}
+
+/* terminal */
+.term{background:var(--term-bg);color:var(--term-fg);font-family:var(--f-mono);font-size:.8125rem;line-height:1.6;border-radius:var(--r);padding:16px 18px;overflow-x:auto;white-space:pre;margin:0}
+.term .p{color:var(--term-dim)} .term .e{color:#F08A7B} .term .g{color:#7FD3A3} .term .c{color:var(--term-dim);font-style:italic}
+
+/* pipeline */
+.flow{display:flex;flex-direction:column;gap:14px}
+.lane{display:flex;flex-direction:column;gap:8px}
+.lane-label{font-family:var(--f-mono);font-size:var(--s-1);color:var(--muted)}
+.stages{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.stage{font:inherit;font-size:.9375rem;font-weight:500;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer}
+.stage:hover{border-color:var(--accent)}
+.stage[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.arrow{color:var(--muted);font-family:var(--f-mono)}
+.detail{background:var(--bg);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.detail .pk{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--f-mono);font-size:.75rem;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+
+/* package grid */
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filters button{font:inherit;font-size:var(--s-1);padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pkgs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.pkg{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);min-width:0}
+.pkg summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.pkg summary::-webkit-details-marker{display:none}
+.pkg summary .top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.pkg summary .nm{font-family:var(--f-mono);font-weight:500;font-size:.9375rem}
+.pkg summary .grp{font-size:.6875rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pkg summary .one{color:var(--muted);font-size:.9375rem}
+.pkg[open]{border-color:var(--accent);grid-column:1/-1}
+.pkg .body{padding:0 16px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
+@media (max-width:640px){.pkg .body{grid-template-columns:minmax(0,1fr)}}
+.pkg .body h4{margin:0 0 4px;font-size:var(--s-1);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.pkg .body pre{margin:0}
+
+/* annotated lines */
+.annot{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:14px}
+@media (max-width:700px){.annot{grid-template-columns:minmax(0,1fr)}}
+.lines{background:var(--term-bg);border-radius:var(--r);padding:10px 0;overflow-x:auto;font-family:var(--f-mono);font-size:.8125rem}
+.lines button{display:block;width:100%;text-align:left;font:inherit;color:var(--term-fg);background:none;border:0;padding:1px 16px;white-space:pre;cursor:pointer}
+.lines button:hover{background:rgba(255,255,255,.06)}
+.lines button.on{background:rgba(134,171,242,.22)}
+.lines button.dim{color:var(--term-dim);cursor:default}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;align-self:start;position:sticky;top:16px}
+.note .k{font-family:var(--f-mono);font-size:var(--s-1);color:var(--accent);margin-bottom:6px;word-break:break-all}
+
+/* schema */
+.tables{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px}
+@media (max-width:700px){.tables{grid-template-columns:minmax(0,1fr)}}
+.tbl{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+.tbl .th{padding:10px 14px;background:var(--accent-soft);font-family:var(--f-mono);font-weight:500;display:flex;justify-content:space-between;gap:8px}
+.tbl .th span{font-family:var(--f-body);font-size:var(--s-1);color:var(--muted)}
+.tbl button{display:flex;justify-content:space-between;gap:10px;width:100%;font:inherit;font-family:var(--f-mono);font-size:.8125rem;text-align:left;padding:7px 14px;border:0;border-top:1px solid var(--line);background:none;color:var(--ink);cursor:pointer}
+.tbl button span:last-child{color:var(--muted);text-align:right}
+.tbl button:hover{background:var(--bg)}
+.tbl button.on{background:var(--mark-soft)}
+.rel{font-family:var(--f-mono);font-size:var(--s-1);color:var(--muted);text-align:center}
+
+/* demos */
+.ctrls{display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+.ctrls label{display:flex;flex-direction:column;gap:2px;font-size:var(--s-1);color:var(--muted)}
+.ctrls output{font-family:var(--f-mono);color:var(--ink)}
+input[type=range]{accent-color:var(--accent);width:180px;max-width:100%}
+.chunks{display:flex;flex-direction:column;gap:8px}
+.chunk{border-radius:8px;padding:10px 12px;font-size:.9375rem;line-height:1.55}
+.chunk .meta{font-family:var(--f-mono);font-size:.75rem;color:var(--muted);display:block;margin-bottom:2px}
+.chunk mark{background:none;color:var(--ov);font-weight:600;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:2px}
+.stat{font-family:var(--f-mono);font-size:var(--s-1);color:var(--muted)}
+.qbtns{display:flex;flex-wrap:wrap;gap:6px}
+.qbtns button{font:inherit;font-size:.875rem;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;text-align:left}
+.qbtns button[aria-pressed="true"]{border-color:var(--mark);background:var(--mark-soft)}
+.embed-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:700px){.embed-grid{grid-template-columns:minmax(0,1fr)}}
+.plot{width:100%;height:auto;background:var(--bg);border-radius:8px}
+.results{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.results li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:baseline;font-size:.875rem;padding:6px 8px;border-radius:6px}
+.results li.top{background:var(--ok-soft)}
+.results .lt{font-family:var(--f-mono);font-weight:600}
+.results .sc{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* decoder */
+.tokens{display:flex;flex-wrap:wrap;gap:6px;background:var(--term-bg);padding:14px;border-radius:var(--r)}
+.tokens button{font-family:var(--f-mono);font-size:.875rem;background:transparent;color:var(--term-fg);border:1px dashed var(--term-dim);border-radius:6px;padding:4px 8px;cursor:pointer}
+.tokens button:hover{border-style:solid}
+.tokens button.on{background:var(--accent);color:var(--term-bg);border:1px solid var(--accent)}
+.tokens .static{font-family:var(--f-mono);font-size:.875rem;color:var(--term-dim);padding:5px 2px}
+
+/* quiz */
+.quiz{display:flex;flex-direction:column;gap:10px}
+.quiz .q{font-weight:600}
+.quiz .opts{display:flex;flex-direction:column;gap:6px}
+.quiz .opts button{font:inherit;text-align:left;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.quiz .opts button.right{border-color:var(--ok);background:var(--ok-soft)}
+.quiz .opts button.wrong{border-color:var(--err);background:var(--err-soft)}
+.quiz .why{font-size:.9375rem;color:var(--muted)}
+
+/* checklist */
+.check{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.check li label{display:grid;grid-template-columns:22px minmax(0,1fr);gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;align-items:start}
+.check li label:hover{background:var(--bg)}
+.check input{width:18px;height:18px;accent-color:var(--ok);margin-top:3px}
+.check .t{font-weight:500}
+.check .d{display:block;font-size:.875rem;color:var(--muted)}
+.check input:checked + span .t{text-decoration:line-through;text-decoration-color:var(--muted);color:var(--muted)}
+
+/* glossary */
+#gq{font:inherit;padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);width:100%;max-width:420px}
+dl.gloss{display:grid;grid-template-columns:minmax(0,180px) minmax(0,1fr);gap:0;margin:0;border-top:1px solid var(--line)}
+dl.gloss dt,dl.gloss dd{padding:10px 0;border-bottom:1px solid var(--line);margin:0}
+dl.gloss dt{font-family:var(--f-mono);font-weight:500;font-size:.875rem;padding-right:16px}
+@media (max-width:560px){dl.gloss{grid-template-columns:minmax(0,1fr)} dl.gloss dt{border-bottom:0;padding-bottom:0}}
+
+button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+html{scroll-behavior:smooth}
+</style>
+
+<div class="shell">
+  <nav class="rail" aria-label="Chapters">
+    <div class="brand">RAG Pipeline<br>Field Guide<small>~/Documents/rag-pipeline</small></div>
+    <ol id="toc">
+      <li><a href="#big-picture"><span class="n">0</span>The big picture</a></li>
+      <li><a href="#environment"><span class="n">1</span>Python environment</a></li>
+      <li><a href="#packages"><span class="n">2</span>The 18 packages</a></li>
+      <li><a href="#docker"><span class="n">3</span>Docker services</a></li>
+      <li><a href="#schema"><span class="n">4</span>Database schema</a></li>
+      <li><a href="#run-schema"><span class="n">5</span>Creating the tables</a></li>
+      <li><a href="#next"><span class="n">6</span>Roadmap</a></li>
+      <li><a href="#glossary"><span class="n">·</span>Glossary</a></li>
+    </ol>
+    <div class="progress-mini"><span id="progTxt">0 of 0 steps done</span><div class="bar"><i id="progBar"></i></div></div>
+  </nav>
+
+  <main>
+    <!-- ============ 0 ============ -->
+    <section id="big-picture">
+      <div class="eyebrow">Chapter 0 · Start here</div>
+      <h1>What are we building?</h1>
+      <p class="lede">A <b>RAG pipeline</b>: a program that answers questions about <i>your own documents</i> by finding the relevant passages first and then asking an AI model to answer using only those passages.</p>
+      <p><b>RAG</b> stands for <b>Retrieval-Augmented Generation</b>. <b>Retrieval</b> means finding the right text. <b>Augmented</b> means adding that text to the prompt. <b>Generation</b> means the LLM writes the answer.</p>
+      <div class="callout"><b>Analogy: an open-book exam</b>An LLM on its own is like a student answering from memory. It may not know your company's refund policy, so it might guess. RAG hands the student the right pages of the textbook first, so the answer comes from those pages and can cite them.</div>
+
+      <div class="panel">
+        <div class="panel-head"><b>The pipeline, step by step</b><span>click any step</span></div>
+        <div class="flow">
+          <div class="lane"><div class="lane-label">A · INGEST: runs once per document, in the background</div>
+            <div class="stages" data-lane="ingest"></div></div>
+          <div class="lane"><div class="lane-label">B · QUERY: runs every time someone asks a question</div>
+            <div class="stages" data-lane="query"></div></div>
+        </div>
+        <div class="detail" id="stageDetail" aria-live="polite"></div>
+      </div>
+
+      <h3>Three ideas you need</h3>
+      <ul class="plain">
+        <li><b>Chunk.</b> A small piece of a document, a few paragraphs long. We split documents up because a whole PDF is too big to paste into a prompt, and most of it is irrelevant to any one question.</li>
+        <li><b>Embedding.</b> A list of numbers (1536 of them for OpenAI's model) that represents what a piece of text <i>means</i>. Texts with similar meanings get similar lists of numbers, even if they use different words. In Python terms it's just a <code>list[float]</code>.</li>
+        <li><b>Vector search.</b> To answer a question, turn the question into an embedding too, then find the chunks whose embeddings are closest to it. "Closest" is calculated with math, usually <i>cosine similarity</i>, which you'll get to play with in Chapter 4.</li>
+      </ul>
+    </section>
+
+    <!-- ============ 1 ============ -->
+    <section id="environment">
+      <div class="eyebrow">Chapter 1</div>
+      <h2>Setting up the Python environment</h2>
+      <p>Before writing any code, we needed an isolated place to install packages. That's a <b>virtual environment</b> (venv): a folder with its own copy of Python and its own <code>site-packages</code>, so this project's packages don't clash with other projects'.</p>
+
+      <div class="panel">
+        <div class="panel-head"><b>Decode the commands</b><span>click each piece</span></div>
+        <div class="tokens" data-decoder="venv"></div>
+        <div class="detail" data-decoder-out="venv"></div>
+        <div class="tokens" data-decoder="activate"></div>
+        <div class="detail" data-decoder-out="activate"></div>
+      </div>
+
+      <h3>Problem 1: “no such file or directory”</h3>
+<pre class="term"><span class="p">(base) rag-pipeline %</span> python3 -m venv venv          <span class="c"># creates a folder named  venv</span>
+<span class="p">(base) rag-pipeline %</span> source .venv/bin/activate     <span class="c"># looks for a folder named .venv</span>
+<span class="e">source: no such file or directory: .venv/bin/activate</span></pre>
+      <div class="callout err"><b>What went wrong</b>The folder was created as <code>venv</code>, but the command tried to activate <code>.venv</code>, with a dot at the start. Those are two different names. A leading dot also makes a folder hidden in macOS, so <code>.venv</code> and <code>venv</code> are both common conventions. Just be consistent.</div>
+      <div class="callout ok"><b>Fix</b><code>source venv/bin/activate</code>. Your prompt then shows <code>(venv)</code>.</div>
+
+      <h3>Problem 2: Python 3.14 was too new</h3>
+<pre class="term"><span class="p">(venv) %</span> pip install -r requirements.txt
+<span class="c">  ...building pydantic-core from source...</span>
+<span class="e">error: the configured Python interpreter version (3.14) is newer than
+       PyO3's maximum supported version (3.13)</span>
+<span class="e">Failed to build tiktoken pydantic-core</span></pre>
+      <div class="callout err"><b>What went wrong</b>Some packages, such as <code>pydantic-core</code> and <code>tiktoken</code>, are written partly in <b>Rust</b> for speed. pip normally downloads a pre-built version called a <b>wheel</b>. The pinned 2024 versions have no wheel for Python 3.14, so pip tried to compile them itself. Their build tool (PyO3) didn't support 3.14 yet, so the build failed.</div>
+      <div class="callout ok"><b>Fix</b>We deleted the empty venv and recreated it with the Python 3.11 from the <code>curio</code> conda environment, then installed again. All 18 packages installed and import correctly.</div>
+<pre class="term"><span class="p">%</span> rm -rf venv
+<span class="p">%</span> /opt/homebrew/Caskroom/miniforge/base/envs/curio/bin/python -m venv venv
+<span class="p">%</span> venv/bin/pip install -r requirements.txt
+<span class="g">Successfully installed ... fastapi-0.115.0 ... sentence-transformers-3.1.1 ...</span>
+<span class="p">%</span> venv/bin/pip check
+<span class="g">No broken requirements found.</span></pre>
+
+      <h3>What “(venv) (base)” in the prompt means</h3>
+      <p><code>(base)</code> means conda's base environment is active, and <code>(venv)</code> means your project venv is active on top of it. The venv wins, since its <code>python</code> comes first on your PATH, but having both active can be confusing. Run <code>conda deactivate</code> first to keep things clean. Use <code>which python</code> to check which Python you're using. It should print <code>…/rag-pipeline/venv/bin/python</code>.</p>
+
+      <div class="panel quiz" data-quiz>
+        <div class="q">You open a new terminal tab and <code>import fastapi</code> fails. Most likely cause?</div>
+        <div class="opts">
+          <button data-why="Installed packages live inside venv/. A new terminal starts without the venv active.">The venv isn't activated in this new tab</button>
+          <button data-wrong data-why="Nothing deletes packages when you close a terminal.">The packages were uninstalled</button>
+          <button data-wrong data-why="Python 3.11 runs FastAPI fine; that's why we switched to it.">FastAPI doesn't support Python 3.11</button>
+        </div>
+        <div class="why"></div>
+      </div>
+    </section>
+
+    <!-- ============ 2 ============ -->
+    <section id="packages">
+      <div class="eyebrow">Chapter 2</div>
+      <h2>The 18 packages in requirements.txt</h2>
+      <p><code>requirements.txt</code> is a shopping list for pip. <code>fastapi==0.115.0</code> means "exactly this version", and <code>asyncpg&gt;=0.29.0</code> means "this version or newer". Pinning exact versions makes sure everyone gets the same setup. Click a card for an explanation, an analogy and a code sample.</p>
+      <div class="filters" id="pkgFilters"></div>
+      <div class="pkgs" id="pkgGrid"></div>
+      <div class="callout"><b>Square brackets = extras</b><code>uvicorn[standard]</code> means "uvicorn plus its optional speed-up packages". <code>sqlalchemy[asyncio]</code> means "SQLAlchemy plus what's needed for <code>async</code>/<code>await</code>". That's why pip installed about 90 packages in total: each package brings its own dependencies. For example, <code>sentence-transformers</code> pulls in PyTorch.</div>
+    </section>
+
+    <!-- ============ 3 ============ -->
+    <section id="docker">
+      <div class="eyebrow">Chapter 3</div>
+      <h2>Docker: running Postgres and Redis</h2>
+      <p>Our app needs two servers: <b>PostgreSQL</b> (the database) and <b>Redis</b> (the job queue). Instead of installing them on your Mac, we run them in <b>containers</b>. A container is a small, isolated Linux box that holds just that one program. <code>docker-compose.yml</code> describes both boxes, and <code>docker compose up -d</code> starts them.</p>
+      <div class="callout"><b>Python analogy</b>A venv isolates Python <i>packages</i>. A container isolates a whole <i>program and its operating system</i>. Delete the container and your Mac stays clean.</div>
+      <div class="panel">
+        <div class="panel-head"><b>docker-compose.yml, line by line</b><span>click a line</span></div>
+        <div class="annot">
+          <div class="lines" id="composeLines"></div>
+          <div class="note" id="composeNote"></div>
+        </div>
+      </div>
+<pre class="term"><span class="p">%</span> docker compose up -d      <span class="c"># start both containers in the background (-d = detached)</span>
+<span class="p">%</span> docker ps                 <span class="c"># list running containers → rag-pipeline-db-1, rag-pipeline-redis-1</span>
+<span class="p">%</span> docker compose down       <span class="c"># stop them (data survives in the volumes)</span></pre>
+    </section>
+
+    <!-- ============ 4 ============ -->
+    <section id="schema">
+      <div class="eyebrow">Chapter 4</div>
+      <h2>The database schema</h2>
+      <p><code>schema.sql</code> defines two tables. Think of each table as a list of rows, where each row is like a Python <code>dataclass</code> instance with fixed, typed fields. Click a column to see what it's for.</p>
+      <div class="panel">
+        <div class="panel-head"><b>documents → chunks</b><span>1 document has many chunks</span></div>
+        <div class="tables">
+          <div class="tbl" id="tblDocs"></div>
+          <div class="tbl" id="tblChunks"></div>
+        </div>
+        <div class="detail" id="colDetail"></div>
+      </div>
+
+      <h3>Try it: chunking</h3>
+      <p>The ingest worker cuts each document into overlapping pieces. The <b>overlap</b> matters: if a key sentence falls on a boundary, it still appears whole in at least one chunk. Move the sliders.</p>
+      <div class="panel">
+        <div class="ctrls">
+          <label for="csize">Chunk size (words) <output id="csizeOut">30</output><input type="range" id="csize" min="12" max="60" value="30"></label>
+          <label for="cover">Overlap (words) <output id="coverOut">6</output><input type="range" id="cover" min="0" max="15" value="6"></label>
+          <span class="stat" id="cstat"></span>
+        </div>
+        <div class="chunks" id="chunkOut"></div>
+        <p class="stat">Real code counts <b>tokens</b> with <code>tiktoken</code>, not words. One token is roughly ¾ of an English word, and typical settings are 300 to 800 tokens per chunk with 10 to 15% overlap. <span style="color:var(--ov);font-weight:600;text-decoration:underline">Underlined</span> words are shared with the previous chunk.</p>
+      </div>
+
+      <h3>Try it: vector search</h3>
+      <p>Below, six chunks from a pretend company handbook are drawn as arrows. Real embeddings have 1536 numbers each. These have <b>2</b> so we can draw them. Pick a question to see which chunks point in nearly the same direction.</p>
+      <div class="panel">
+        <div class="qbtns" id="qBtns"></div>
+        <div class="embed-grid">
+          <svg class="plot" id="plot" viewBox="-1.3 -1.22 2.6 1.42" role="img" aria-label="2D plot of chunk embeddings and the question embedding"></svg>
+          <div>
+            <ol class="results" id="results"></ol>
+            <p class="stat" style="margin-top:10px">Score = <b>cosine similarity</b>: 1.0 means the same direction (same meaning), 0 means unrelated. In SQL, pgvector's <code>&lt;=&gt;</code> gives <i>cosine distance</i> = 1 − similarity, so <code>ORDER BY embedding &lt;=&gt; :q</code> puts the closest chunks first. The 3 highlighted chunks are what gets sent to the LLM.</p>
+          </div>
+        </div>
+      </div>
+      <div class="callout"><b>Why the schema also has <code>content_tsv</code> (keyword search)</b>Vector search finds <i>meaning</i>, so "money back" matches "refund". It can miss exact strings like error codes (<code>ERR-4021</code>) or product names. <code>content_tsv</code> plus its GIN index give fast keyword search too. Combining the two is called <b>hybrid search</b>.</div>
+      <div class="callout"><b>Why the HNSW index</b>Comparing a question against <i>every</i> chunk is fine for 1,000 chunks and slow for 10 million. HNSW builds a graph of "neighbour" vectors, so the search can jump straight to the right area. It's approximate, but finds nearly all of the true nearest matches. <code>m=16, ef_construction=64</code> are pgvector's default settings.</div>
+    </section>
+
+    <!-- ============ 5 ============ -->
+    <section id="run-schema">
+      <div class="eyebrow">Chapter 5</div>
+      <h2>Creating the tables</h2>
+      <p>We fed <code>schema.sql</code> into the Postgres server that runs inside the Docker container. Click each piece of the command:</p>
+      <div class="panel">
+        <div class="tokens" data-decoder="dexec"></div>
+        <div class="detail" data-decoder-out="dexec"></div>
+      </div>
+<pre class="term"><span class="p">(venv) %</span> docker exec -i rag-pipeline-db-1 psql -U rag_user -d rag_db &lt; schema.sql
+<span class="g">CREATE EXTENSION</span>   <span class="c">← pgvector switched on</span>
+<span class="g">CREATE TABLE</span>       <span class="c">← documents</span>
+<span class="g">CREATE INDEX</span>       <span class="c">← unique (tenant_id, content_hash): no duplicate uploads</span>
+<span class="g">CREATE TABLE</span>       <span class="c">← chunks</span>
+<span class="g">CREATE INDEX</span>       <span class="c">← chunks.document_id</span>
+<span class="g">CREATE INDEX</span>       <span class="c">← chunks.tenant_id</span>
+<span class="g">ALTER TABLE</span>        <span class="c">← added content_tsv column (keyword search)</span>
+<span class="g">CREATE INDEX</span>       <span class="c">← GIN index for keyword search</span>
+<span class="g">CREATE INDEX</span>       <span class="c">← HNSW index for vector search</span></pre>
+      <p>Each line is Postgres confirming one statement from the file. No line starting with <code>ERROR:</code> means everything worked. If you run the file a second time, you'll get <code>ERROR: relation "documents" already exists</code>. That's harmless and just means the tables are already there.</p>
+<pre class="term"><span class="p">%</span> docker exec -it rag-pipeline-db-1 psql -U rag_user -d rag_db   <span class="c"># open an interactive SQL prompt</span>
+<span class="p">rag_db=#</span> \dt              <span class="c"># list tables</span>
+<span class="p">rag_db=#</span> \d chunks        <span class="c"># show columns + indexes of chunks</span>
+<span class="p">rag_db=#</span> SELECT count(*) FROM chunks;
+<span class="p">rag_db=#</span> \q               <span class="c"># quit</span></pre>
+      <div class="panel quiz" data-quiz>
+        <div class="q">Why <code>-i</code> here, but <code>-it</code> when you want to type SQL yourself?</div>
+        <div class="opts">
+          <button data-wrong data-why="Neither flag affects speed.">-it is faster</button>
+          <button data-why="-i keeps input open so the file can flow in. -t adds a real terminal (a prompt, arrow keys), which you only want when a human is typing.">-i lets input flow in; -t adds a terminal for a human to type into</button>
+          <button data-wrong data-why="Both talk to the same container; the flags only control input and terminal.">-it connects to a different container</button>
+        </div>
+        <div class="why"></div>
+      </div>
+    </section>
+
+    <!-- ============ 6 ============ -->
+    <section id="next">
+      <div class="eyebrow">Chapter 6</div>
+      <h2>Roadmap</h2>
+      <p>What's done and what comes next. Tick items as you go. Your ticks are saved in this browser only.</p>
+      <div class="panel"><ul class="check" id="checklist"></ul></div>
+    </section>
+
+    <!-- ============ glossary ============ -->
+    <section id="glossary">
+      <div class="eyebrow">Reference</div>
+      <h2>Glossary</h2>
+      <input id="gq" type="search" placeholder="Filter terms… (e.g. token, index)" aria-label="Filter glossary">
+      <dl class="gloss" id="gloss"></dl>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+/* ---------- pipeline ---------- */
+const STAGES = {
+  ingest:[
+    {k:"Upload", t:"A user uploads a file (PDF, text…) to our API.", p:["fastapi","uvicorn","python-multipart"], py:"@app.post('/documents') receives an UploadFile."},
+    {k:"Queue", t:"The API doesn't process it right away (that could take minutes). It saves a row in documents and puts a job on a queue, then replies immediately.", p:["celery","redis"], py:"process_document.delay(doc_id)"},
+    {k:"Chunk", t:"A background worker extracts the text and splits it into overlapping pieces of a few hundred tokens each.", p:["tiktoken"], py:"chunks = split(text, size=500, overlap=50)"},
+    {k:"Embed", t:"Each chunk is sent to an embedding model, which returns 1536 numbers that capture its meaning. Failed calls are retried automatically.", p:["openai","sentence-transformers","tenacity"], py:"vec = client.embeddings.create(model='text-embedding-3-small', input=chunk)"},
+    {k:"Store", t:"Each chunk's text and embedding are saved in the chunks table.", p:["sqlalchemy","asyncpg","pgvector"], py:"session.add(Chunk(content=..., embedding=vec))"}
+  ],
+  query:[
+    {k:"Ask", t:"A user sends a question to the API.", p:["fastapi","pydantic"], py:"class QueryRequest(BaseModel): question: str"},
+    {k:"Embed question", t:"The question is embedded with the SAME model used for the chunks. Embeddings from different models can't be compared.", p:["openai"], py:"q_vec = embed(question)"},
+    {k:"Search", t:"Postgres finds the chunks whose embeddings are closest to the question's (vector search), optionally combined with keyword search.", p:["pgvector","sqlalchemy"], py:"ORDER BY embedding <=> :q_vec LIMIT 5"},
+    {k:"Generate", t:"The question and the top chunks are put into one prompt (“Answer using only this context…”), and the LLM writes the answer.", p:["openai"], py:"client.chat.completions.create(messages=[...context..., question])"},
+    {k:"Answer", t:"The API returns the answer plus which documents it came from, so the user can check the sources.", p:["fastapi","pydantic"], py:"return {'answer': ..., 'sources': [...]}"}
+  ]
+};
+const detail = $("#stageDetail");
+function showStage(btn, s){
+  document.querySelectorAll(".stage").forEach(b=>b.setAttribute("aria-pressed","false"));
+  btn.setAttribute("aria-pressed","true");
+  detail.innerHTML = `<b>${esc(s.k)}</b><p>${esc(s.t)}</p><code style="align-self:flex-start">${esc(s.py)}</code><div class="pk">${s.p.map(x=>`<span class="chip">${esc(x)}</span>`).join("")}</div>`;
+}
+Object.entries(STAGES).forEach(([lane, list])=>{
+  const host = document.querySelector(`[data-lane="${lane}"]`);
+  list.forEach((s,i)=>{
+    const b = document.createElement("button"); b.className="stage"; b.textContent=s.k; b.setAttribute("aria-pressed","false");
+    b.onclick=()=>showStage(b,s); host.appendChild(b);
+    if(i<list.length-1){const a=document.createElement("span");a.className="arrow";a.textContent="→";host.appendChild(a);}
+    if(lane==="ingest"&&i===0) showStage(b,s);
+  });
+});
+
+/* ---------- decoders ---------- */
+const DEC = {
+  venv:[
+    ["python3","The Python interpreter. Which one runs depends on your PATH. Check with which python3."],
+    ["-m venv","-m means “run a module as a script”. venv is Python's built-in module for creating virtual environments."],
+    ["venv","The name of the folder to create. It could be anything (.venv, env, myenv). We used venv."]
+  ],
+  activate:[
+    ["source","A shell command: run this script in MY current shell, so its changes (like PATH) stick. Running it without source would only change a throwaway sub-shell."],
+    ["venv/bin/activate","The script inside the venv folder. It puts venv/bin first on your PATH, so python and pip now mean the venv's copies. Undo with: deactivate."]
+  ],
+  dexec:[
+    ["docker exec","Run a command inside a container that's already running. Postgres lives in the container, not on your Mac."],
+    ["-i","Interactive: keep input (stdin) open so data from your Mac can flow into the command. Without it, schema.sql never reaches psql."],
+    ["rag-pipeline-db-1","The container's name: <folder>-<service>-<number>. rag-pipeline (your folder) + db (service in docker-compose.yml) + 1. See it with docker ps."],
+    ["psql","Postgres's command-line client: connects to a database and runs SQL."],
+    ["-U rag_user","Log in as this User. Comes from POSTGRES_USER in docker-compose.yml."],
+    ["-d rag_db","Use this database (one server can hold many). Comes from POSTGRES_DB."],
+    ["< schema.sql","Not a flag. This is your shell's input redirection: zsh opens schema.sql and pours its contents into the command, as if you typed it all."]
+  ]
+};
+document.querySelectorAll("[data-decoder]").forEach(host=>{
+  const key=host.dataset.decoder, out=document.querySelector(`[data-decoder-out="${key}"]`);
+  const show=(b,[tok,txt])=>{host.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+    out.innerHTML=`<code style="align-self:flex-start">${esc(tok)}</code><p>${esc(txt)}</p>`;};
+  DEC[key].forEach((d,i)=>{const b=document.createElement("button");b.textContent=d[0];b.onclick=()=>show(b,d);host.appendChild(b);if(i===0)show(b,d);});
+});
+
+/* ---------- packages ---------- */
+const PK = [
+ ["fastapi","Web API","The web framework: defines the URLs (endpoints) of our app.","Like Flask, but uses your type hints to validate input automatically and generates interactive docs at /docs.","Endpoints: POST /documents (upload) and POST /query (ask).","from fastapi import FastAPI\napp = FastAPI()\n\n@app.get(\"/health\")\ndef health():\n    return {\"ok\": True}"],
+ ["uvicorn[standard]","Web API","The server that actually runs the FastAPI app and listens on a port.","FastAPI is the recipe; uvicorn is the kitchen that serves customers. [standard] adds faster internals.","Start the app: uvicorn app.main:app --reload → http://localhost:8000","# terminal\nuvicorn app.main:app --reload\n# app.main = app/main.py, :app = the FastAPI() object"],
+ ["python-multipart","Web API","Parses file uploads (multipart/form-data).","You never import it. FastAPI uses it behind the scenes and errors if it's missing.","Needed for the upload endpoint's UploadFile.","from fastapi import UploadFile\n\n@app.post(\"/documents\")\nasync def upload(file: UploadFile):\n    data = await file.read()"],
+ ["sqlalchemy[asyncio]","Database","Talk to the database with Python objects instead of raw SQL strings.","An ORM: a table becomes a Python class and a row becomes an instance, a bit like a dataclass that's saved to the DB.","Define Document and Chunk classes; run inserts and searches.","class Chunk(Base):\n    __tablename__ = \"chunks\"\n    id: Mapped[UUID] = mapped_column(primary_key=True)\n    content: Mapped[str]"],
+ ["asyncpg","Database","The low-level, very fast async driver that speaks Postgres's network protocol.","SQLAlchemy is the translator; asyncpg is the phone line to Postgres.","Appears in the connection URL.","DATABASE_URL = \"postgresql+asyncpg://rag_user:rag_password@localhost:5432/rag_db\""],
+ ["pgvector","Database","Python support for the vector column type and distance operators.","Lets SQLAlchemy understand Vector(1536) the way it understands Integer or String.","The embedding column and similarity search.","from pgvector.sqlalchemy import Vector\nembedding = mapped_column(Vector(1536))\n# search: order_by(Chunk.embedding.cosine_distance(q_vec))"],
+ ["pydantic","Config & data","Validates data using type hints and raises clear errors on bad input.","A dataclass that checks its inputs: int fields reject \"abc\".","Request/response shapes for the API.","from pydantic import BaseModel\n\nclass QueryRequest(BaseModel):\n    question: str\n    top_k: int = 5"],
+ ["pydantic-settings","Config & data","Loads settings from environment variables or a .env file into a typed class.","Like os.environ, but typed and validated, and secrets stay out of your code.","DATABASE_URL, REDIS_URL, OPENAI_API_KEY.","from pydantic_settings import BaseSettings\n\nclass Settings(BaseSettings):\n    database_url: str\n    openai_api_key: str\n\nsettings = Settings()  # reads .env / env vars"],
+ ["openai","AI","Official SDK for calling OpenAI's models.","A Python wrapper around their web API, so you call functions instead of writing HTTP requests.","(1) Turn text into embeddings. (2) Generate the final answer.","from openai import OpenAI\nclient = OpenAI()\nr = client.embeddings.create(\n    model=\"text-embedding-3-small\", input=\"hello\")\nvec = r.data[0].embedding  # list of 1536 floats"],
+ ["sentence-transformers","AI","Runs embedding models locally: free, offline, no API key.","Same idea as OpenAI embeddings, but the model runs on your laptop. Pulls in PyTorch (large).","Optional free alternative, or a reranker that re-scores the top results.","from sentence_transformers import SentenceTransformer\nm = SentenceTransformer(\"all-MiniLM-L6-v2\")\nvec = m.encode(\"hello\")  # 384 numbers, not 1536!"],
+ ["tiktoken","AI","Counts tokens the way OpenAI models count them.","LLMs read tokens (word pieces), not characters. Limits and prices are in tokens.","Chunk by token count and fill the token_count column.","import tiktoken\nenc = tiktoken.get_encoding(\"cl100k_base\")\nlen(enc.encode(\"Refunds take 14 days\"))  # → 5"],
+ ["celery","Background jobs","A task queue: run slow functions in separate worker processes.","A restaurant: the waiter (API) takes the order and the cooks (workers) prepare it. The waiter doesn't stand at the stove.","Process uploaded documents (chunk → embed → store) in the background.","@celery_app.task\ndef process_document(doc_id): ...\n\nprocess_document.delay(doc_id)  # returns instantly"],
+ ["redis","Background jobs","Client for Redis, a super-fast in-memory data store.","Like a dict that lives on a server and many processes can share.","Celery's message queue (broker); optionally a cache.","import redis\nr = redis.Redis.from_url(\"redis://localhost:6379/0\")\nr.set(\"k\", \"v\"); r.get(\"k\")"],
+ ["flower","Background jobs","A web dashboard to watch Celery tasks and workers.","A live view of the kitchen: which orders are cooking, done or failed.","Debug ingestion jobs.","# terminal\ncelery -A app.worker flower\n# open http://localhost:5555"],
+ ["httpx","Networking","An HTTP client, sync and async.","Like requests, but it also supports async/await.","Used inside the openai SDK; used in tests to call our API.","import httpx\nasync with httpx.AsyncClient() as c:\n    r = await c.get(\"https://example.com\")"],
+ ["tenacity","Networking","Automatic retries with back-off for flaky calls.","A decorator that says “if this fails, wait a bit and try again”.","Retry OpenAI calls on rate limits (HTTP 429) and timeouts.","from tenacity import retry, stop_after_attempt, wait_exponential\n\n@retry(stop=stop_after_attempt(5), wait=wait_exponential())\ndef embed(text): ..."],
+ ["pytest","Testing","The standard Python test runner.","Write functions starting with test_ and use plain assert.","Test chunking, search and the endpoints.","def test_chunks_overlap():\n    out = split(\"a b c d e\", size=3, overlap=1)\n    assert out[1][0] == out[0][-1]"],
+ ["pytest-asyncio","Testing","Lets pytest run async def tests.","Plain pytest doesn't know how to await.","Our DB and API code is async, so the tests are too.","import pytest\n\n@pytest.mark.asyncio\nasync def test_health(client):\n    r = await client.get(\"/health\")\n    assert r.status_code == 200"]
+];
+const groups = ["All", ...new Set(PK.map(p=>p[1]))];
+let curGroup = "All";
+const grid = $("#pkgGrid"), filt = $("#pkgFilters");
+groups.forEach(g=>{const b=document.createElement("button");b.textContent=g;b.setAttribute("aria-pressed",g==="All");b.onclick=()=>{curGroup=g;filt.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));renderPk();};filt.appendChild(b);});
+function renderPk(){
+  grid.innerHTML = PK.filter(p=>curGroup==="All"||p[1]===curGroup).map(([n,g,one,an,use,code])=>`
+  <details class="pkg"><summary><span class="top"><span class="nm">${esc(n)}</span><span class="grp">${esc(g)}</span></span><span class="one">${esc(one)}</span></summary>
+  <div class="body"><div><h4>In Python terms</h4><p>${esc(an)}</p><h4 style="margin-top:12px">In this project</h4><p>${esc(use)}</p></div>
+  <div style="min-width:0"><h4>Looks like</h4><pre class="term">${esc(code)}</pre></div></div></details>`).join("");
+}
+renderPk();
+
+/* ---------- docker compose ---------- */
+const CL = [
+ ['version: "3.9"',"File format version. Newer Docker versions ignore this line; it's harmless."],
+ ["services:","Each item below is one container to run."],
+ ["  db:","Service name. Used for the container name (rag-pipeline-db-1) and by other containers to reach it."],
+ ["    image: pgvector/pgvector:pg16","Which pre-built image to download: Postgres 16 with the pgvector extension already installed. Like pip install, but for a whole server."],
+ ["    restart: always","If it crashes or your Mac restarts Docker, start it again automatically."],
+ ["    environment:","Environment variables passed into the container. The Postgres image reads these on first start."],
+ ["      POSTGRES_USER: rag_user","Creates this database user, the one you log in as with -U rag_user."],
+ ["      POSTGRES_PASSWORD: rag_password","That user's password. Fine for local development; never use this in production."],
+ ["      POSTGRES_DB: rag_db","Creates this database, the one you select with -d rag_db."],
+ ["    ports:",null],
+ ['      - "5432:5432"',"HOST:CONTAINER. Your Mac's port 5432 forwards to Postgres inside the container, so Python on your Mac can connect to localhost:5432."],
+ ["    volumes:",null],
+ ["      - pgdata:/var/lib/postgresql/data","Stores the database files in a named volume outside the container. Delete or recreate the container and your data is still there."],
+ ["    command: >","Overrides the start command so we can tune Postgres settings. > lets YAML continue on the next lines."],
+ ["      -c shared_buffers=1GB","Memory Postgres uses to cache data. More cache means fewer disk reads."],
+ ["      -c max_connections=200","How many clients can connect at once (API + workers)."],
+ ["      -c work_mem=64MB","Memory per sort/join operation."],
+ ["      -c maintenance_work_mem=512MB","Memory for building indexes. Building the HNSW vector index benefits a lot from this."],
+ ["  redis:","Second service: Redis, used as Celery's job queue."],
+ ["    image: redis:7","Official Redis version 7 image."],
+ ['      - "6379:6379"',"Redis's default port, exposed to your Mac: redis://localhost:6379."],
+ ["      - redisdata:/data","Saves Redis data in a volume too."],
+ ["volumes:","Declares the named volumes used above. Docker manages where they live on disk."]
+];
+const cl=$("#composeLines"), cn=$("#composeNote");
+CL.forEach(([line,note],i)=>{const b=document.createElement("button");b.textContent=line;
+  if(!note){b.classList.add("dim");b.tabIndex=-1;} else b.onclick=()=>{cl.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");cn.innerHTML=`<div class="k">${esc(line.trim())}</div><p>${esc(note)}</p>`;};
+  cl.appendChild(b); if(i===3) b.click();});
+
+/* ---------- schema ---------- */
+const DOCS=[
+ ["id","UUID PK","Unique ID for each document, generated by Postgres with gen_random_uuid(). A UUID looks like 3f2a…-…; it's safe to generate anywhere and won't collide."],
+ ["tenant_id","UUID","Who owns this document (a customer, workspace or user). Many customers share one database, so every query filters by tenant_id to keep their data separate."],
+ ["source_uri","TEXT","Where the document came from (URL, file path). Used to cite sources in answers."],
+ ["title","TEXT?","Optional display name. No NOT NULL, so it can be empty (None in Python)."],
+ ["content_hash","TEXT","A fingerprint of the file, e.g. hashlib.sha256(data).hexdigest(). With the UNIQUE index on (tenant_id, content_hash), the same tenant uploading the same file twice is rejected, so no duplicates."],
+ ["metadata","JSONB","Free-form extras as JSON (author, page count, tags). Think of it as a dict column. JSONB can be queried: metadata->>'author'."],
+ ["created_at","TIMESTAMPTZ","When the row was created. now() fills it in automatically. TZ = with time zone."],
+ ["updated_at","TIMESTAMPTZ","When it last changed. Postgres does NOT update this automatically; your code must set it."]
+];
+const CHUNKS=[
+ ["id","UUID PK","Unique ID for each chunk."],
+ ["document_id","UUID FK","Which document this piece came from. REFERENCES documents(id) means it must point to a real document. ON DELETE CASCADE means deleting a document deletes its chunks too."],
+ ["tenant_id","UUID","Copied from the document on purpose, so searches can filter by owner without a slower JOIN."],
+ ["chunk_index","INT","Position in the document: 0, 1, 2… Lets you rebuild the order or fetch neighbouring chunks for more context."],
+ ["content","TEXT","The chunk's actual text, the part that gets pasted into the LLM prompt."],
+ ["token_count","INT","How many tokens the text has (counted with tiktoken). Used to fit as many chunks as possible into the LLM's context limit."],
+ ["embedding","vector(1536)","The meaning of the text as 1536 numbers (OpenAI text-embedding-3-small). It can be empty at first, because the background worker fills it in after the chunk row is saved. If you switch to all-MiniLM-L6-v2, this must become vector(384)."],
+ ["metadata","JSONB","Per-chunk extras: page number, section heading…"],
+ ["created_at","TIMESTAMPTZ","When the chunk was created."],
+ ["content_tsv","tsvector ⚙","Generated automatically from content: lowercased, common words removed, words reduced to their roots (“running” → “run”). It powers keyword search through the GIN index. You never write to it."]
+];
+const colDetail=$("#colDetail");
+function buildTbl(el,name,sub,cols){
+  el.innerHTML=`<div class="th">${name}<span>${sub}</span></div>`;
+  cols.forEach(([c,t,d],i)=>{const b=document.createElement("button");b.innerHTML=`<span>${esc(c)}</span><span>${esc(t)}</span>`;
+    b.onclick=()=>{document.querySelectorAll(".tbl button").forEach(x=>x.classList.remove("on"));b.classList.add("on");colDetail.innerHTML=`<code style="align-self:flex-start">${esc(name)}.${esc(c)}</code><p>${esc(d)}</p>`;};
+    el.appendChild(b); if(name==="chunks"&&c==="embedding") b.click();});
+}
+buildTbl($("#tblDocs"),"documents","one per file",DOCS);
+buildTbl($("#tblChunks"),"chunks","many per document · searched",CHUNKS);
+
+/* ---------- chunk demo ---------- */
+const TEXT="Our refund policy is simple. Customers can request a full refund within 14 days of purchase. After 14 days, we offer store credit instead of cash. To start a return, email support with your order number and a short reason. Items must be unused and in their original packaging. Digital products such as gift cards and software licences cannot be refunded once they have been activated. Refunds are sent to the original payment method and usually arrive within five business days. If a refund has not arrived after ten days, contact your bank first, then our support team.";
+const W=TEXT.split(/\s+/), CC=["var(--c1)","var(--c2)","var(--c3)","var(--c4)"];
+const cs=$("#csize"), co=$("#cover");
+function chunk(){
+  let n=+cs.value, o=Math.min(+co.value, n-1); $("#csizeOut").textContent=n; $("#coverOut").textContent=o;
+  const out=[]; let s=0;
+  while(s<W.length){const e=Math.min(s+n,W.length); out.push([s,e]); if(e===W.length)break; s=e-o;}
+  $("#cstat").textContent=`${W.length} words → ${out.length} chunks`;
+  $("#chunkOut").innerHTML=out.map(([s,e],i)=>{
+    const prevEnd=i?out[i-1][1]:0;
+    const words=W.slice(s,e).map((w,j)=> (i && s+j<prevEnd)?`<mark>${esc(w)}</mark>`:esc(w)).join(" ");
+    return `<div class="chunk" style="background:${CC[i%4]}"><span class="meta">chunk_index=${i} · ${e-s} words · ≈${Math.round((e-s)*1.33)} tokens</span>${words}</div>`;}).join("");
+}
+cs.oninput=co.oninput=chunk; chunk();
+
+/* ---------- embedding demo ---------- */
+const CH=[["A","Refunds are issued within 14 days of purchase.",14],["B","To return an item, email support with your order number.",30],
+ ["C","Full-time staff get 20 paid vacation days a year.",74],["D","Public holidays don't count against your leave balance.",90],
+ ["E","Reset your password from Settings → Security.",143],["F","Locked out? Use the “Forgot login” link.",160]];
+const QS=[["How do I get my money back?",21],["How much time off do I get?",82],["I can't sign in to my account",152],["Can I return a gift and take a day off?",52]];
+const R=[0.95,0.8,0.9,0.75,0.85,0.95];
+const rad=d=>d*Math.PI/180, plot=$("#plot"), NS="http://www.w3.org/2000/svg";
+function el(t,a){const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;}
+let qi=0;
+QS.forEach(([q],i)=>{const b=document.createElement("button");b.textContent=q;b.setAttribute("aria-pressed",i===0);b.onclick=()=>{qi=i;$("#qBtns").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));draw();};$("#qBtns").appendChild(b);});
+function draw(){
+  const qa=QS[qi][1];
+  const scored=CH.map((c,i)=>({c,i,s:Math.cos(rad(c[2]-qa))})).sort((a,b)=>b.s-a.s);
+  const top=new Set(scored.slice(0,3).map(x=>x.i));
+  plot.innerHTML="";
+  plot.appendChild(el("line",{x1:-1.2,y1:0,x2:1.2,y2:0,stroke:"var(--line)","stroke-width":.008}));
+  plot.appendChild(el("path",{d:"M -1.1 0 A 1.1 1.1 0 0 1 1.1 0",fill:"none",stroke:"var(--line)","stroke-width":.006,"stroke-dasharray":".03 .03"}));
+  CH.forEach((c,i)=>{const x=R[i]*Math.cos(rad(c[2])), y=-R[i]*Math.sin(rad(c[2])), on=top.has(i);
+    plot.appendChild(el("line",{x1:0,y1:0,x2:x,y2:y,stroke:on?"var(--ok)":"var(--muted)","stroke-width":on?.016:.008,opacity:on?1:.55}));
+    plot.appendChild(el("circle",{cx:x,cy:y,r:.035,fill:on?"var(--ok)":"var(--muted)"}));
+    const t=el("text",{x:x*1.13,y:y*1.13+.025,"font-size":.075,"font-family":"IBM Plex Mono, monospace","text-anchor":"middle",fill:"var(--ink)","font-weight":on?700:400});t.textContent=c[0];plot.appendChild(t);});
+  const qx=1.05*Math.cos(rad(qa)), qy=-1.05*Math.sin(rad(qa));
+  plot.appendChild(el("line",{x1:0,y1:0,x2:qx,y2:qy,stroke:"var(--mark)","stroke-width":.022}));
+  plot.appendChild(el("circle",{cx:qx,cy:qy,r:.045,fill:"var(--mark)"}));
+  const qt=el("text",{x:qx,y:qy-.07,"font-size":.07,"text-anchor":"middle",fill:"var(--mark)","font-weight":700,"font-family":"IBM Plex Sans, sans-serif"});qt.textContent="question";plot.appendChild(qt);
+  plot.appendChild(el("circle",{cx:0,cy:0,r:.02,fill:"var(--ink)"}));
+  const v=a=>`[${Math.cos(rad(a)).toFixed(2)}, ${Math.sin(rad(a)).toFixed(2)}]`;
+  $("#results").innerHTML=`<li style="background:var(--mark-soft)"><span class="lt">Q</span><span>${esc(QS[qi][0])}<br><span class="stat">embedding ${v(qa)}</span></span><span></span></li>`+
+    scored.map((x,r)=>`<li class="${r<3?"top":""}"><span class="lt">${x.c[0]}</span><span>${esc(x.c[1])}</span><span class="sc">${x.s.toFixed(2)}</span></li>`).join("");
+}
+draw();
+
+/* ---------- quiz ---------- */
+document.querySelectorAll("[data-quiz]").forEach(q=>{const why=q.querySelector(".why");
+  q.querySelectorAll(".opts button").forEach(b=>b.onclick=()=>{q.querySelectorAll(".opts button").forEach(x=>x.classList.remove("right","wrong"));
+    const ok=!b.hasAttribute("data-wrong"); b.classList.add(ok?"right":"wrong"); why.textContent=(ok?"Correct. ":"Not quite. ")+b.dataset.why;});});
+
+/* ---------- checklist ---------- */
+const STEPS=[
+ ["venv","Create the Python virtual environment","venv/ with Python 3.11",true],
+ ["pkgs","Install the 18 packages","pip install -r requirements.txt",true],
+ ["docker","Start Postgres + Redis","docker compose up -d",true],
+ ["schema","Create the tables","schema.sql → documents, chunks, indexes",true],
+ ["env","Write config","a .env file + a pydantic-settings Settings class",false],
+ ["db","Connect from Python","SQLAlchemy async engine + Document/Chunk models",false],
+ ["chunk","Write the chunking function","split text by tokens with tiktoken, with overlap",false],
+ ["embed","Generate embeddings","OpenAI embeddings wrapped in tenacity retries",false],
+ ["ingest","Ingestion endpoint + Celery task","POST /documents → queue → chunk → embed → store",false],
+ ["search","Retrieval query","vector search (<=>) + keyword search (content_tsv)",false],
+ ["answer","Answer endpoint","POST /query → top chunks + question → LLM",false],
+ ["tests","Tests","pytest + pytest-asyncio",false]
+];
+let saved={}; try{saved=JSON.parse(localStorage.getItem("rag-guide-steps")||"{}")}catch(e){}
+const ck=$("#checklist");
+function prog(){const done=STEPS.filter(s=>(s[0] in saved)?saved[s[0]]:s[3]).length;$("#progTxt").textContent=`${done} of ${STEPS.length} roadmap steps done`;$("#progBar").style.width=(done/STEPS.length*100)+"%";}
+STEPS.forEach(([id,t,d,def])=>{const li=document.createElement("li");const on=(id in saved)?saved[id]:def;
+  li.innerHTML=`<label><input type="checkbox" id="st-${id}" ${on?"checked":""}><span><span class="t">${esc(t)}</span><span class="d">${esc(d)}</span></span></label>`;
+  li.querySelector("input").onchange=e=>{saved[id]=e.target.checked;try{localStorage.setItem("rag-guide-steps",JSON.stringify(saved))}catch(_){} prog();};
+  ck.appendChild(li);});
+prog();
+
+/* ---------- glossary ---------- */
+const G=[
+ ["RAG","Retrieval-Augmented Generation: find relevant text first, then have the LLM answer using it."],
+ ["LLM","Large Language Model (e.g. GPT, Claude). Predicts text; doesn't know your private data."],
+ ["Chunk","A small piece of a document (a few hundred tokens), the unit we store and search."],
+ ["Token","A word piece that LLMs read. “unbelievable” might be 3 tokens. Roughly ¾ of a word on average."],
+ ["Embedding","A list of numbers representing meaning. Similar meaning gives similar numbers."],
+ ["Vector","Math word for a list of numbers. An embedding is a vector."],
+ ["Cosine similarity","How closely two vectors point in the same direction. 1 = same meaning, 0 = unrelated."],
+ ["Vector search","Finding the stored vectors closest to a query vector."],
+ ["Hybrid search","Vector (meaning) search plus keyword search, combined."],
+ ["pgvector","Postgres extension that adds the vector type, the distance operators and vector indexes."],
+ ["HNSW","A graph-based index for fast approximate nearest-neighbour vector search."],
+ ["GIN index","An “inverted” index (word → rows), used for fast keyword search on tsvector."],
+ ["tsvector","Postgres's search-ready version of text: lowercased, stemmed, stop words removed."],
+ ["Index","An extra lookup structure so the DB doesn't scan every row. Like a book's index."],
+ ["Primary key (PK)","The column that uniquely identifies each row (id)."],
+ ["Foreign key (FK)","A column that must match a row in another table (chunks.document_id → documents.id)."],
+ ["Tenant","One customer/workspace in a shared system. Data is separated by tenant_id."],
+ ["UUID","A random 128-bit ID like 3f2a9c1e-…; practically never collides."],
+ ["JSONB","Postgres's binary JSON column type; queryable. Like a dict column."],
+ ["ORM","Object-Relational Mapper: tables as classes, rows as objects (SQLAlchemy)."],
+ ["Driver","Low-level library that talks to the database over the network (asyncpg)."],
+ ["ASGI","The standard interface between async Python web apps (FastAPI) and servers (uvicorn)."],
+ ["Endpoint","A URL + method your API responds to, e.g. POST /query."],
+ ["Task queue","A list of jobs that background workers pick up (Celery + Redis)."],
+ ["Broker","The service that holds the task queue. Here: Redis."],
+ ["Virtual environment","An isolated Python install + packages for one project (venv/)."],
+ ["Wheel","A pre-built package file pip can install without compiling."],
+ ["Container","An isolated mini Linux system running one service (Postgres, Redis)."],
+ ["Image","The template a container is started from (pgvector/pgvector:pg16)."],
+ ["Volume","Docker-managed storage that outlives containers, so data persists."],
+ ["Port mapping","HOST:CONTAINER, e.g. 5432:5432 forwards your Mac's port into the container."],
+ ["async / await","Python syntax for doing other work while waiting on I/O (DB, network)."],
+ ["Context window","The maximum number of tokens an LLM can read in one request."]
+];
+const gl=$("#gloss");
+function rG(f){f=(f||"").toLowerCase();gl.innerHTML=G.filter(([t,d])=>!f||t.toLowerCase().includes(f)||d.toLowerCase().includes(f)).map(([t,d])=>`<dt>${esc(t)}</dt><dd>${esc(d)}</dd>`).join("")||"<dd style='grid-column:1/-1'>No matching terms.</dd>";}
+$("#gq").oninput=e=>rG(e.target.value); rG();
+
+/* ---------- toc highlight ---------- */
+const links=[...document.querySelectorAll("#toc a")];
+const secs=links.map(a=>document.querySelector(a.getAttribute("href")));
+function hl(){let cur=0;secs.forEach((s,i)=>{if(s.getBoundingClientRect().top<160)cur=i;});links.forEach((a,i)=>a.classList.toggle("on",i===cur));}
+addEventListener("scroll",hl,{passive:true}); hl();
+})();
+</script>
